@@ -25,7 +25,9 @@ df = generateData.executions()
 
 # df = pd.DataFrame(ohlc)
 # df = df.set_index("exec_date") 
-print(df['2021-08-01 00:00' : '2021-08-01 23:00'])
+start = dt.date(2021, 8, 2)
+end = start + dt.timedelta(days=1)
+print(df[start.strftime("%Y/%m/%d %H:%M") : end.strftime("%Y/%m/%d %H:%M")])
 # print(df)
 # env = gym.make('CartPole-v1')
 # # Optional: PPO2 requires a vectorized environment to run
