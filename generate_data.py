@@ -23,7 +23,7 @@ class Logger():
         stream_handler.setFormatter(handler_format)
         self.logger.addHandler(stream_handler)
 
-class GenerateHLOC(object):
+class GenerateData(object):
 
     def __init__(self, root_logger, input_dir):
 
@@ -79,6 +79,62 @@ class GenerateHLOC(object):
                                      'volume': 'sum', 'buy_volume': 'sum', 'sell_volume': 'sum',
                                      'exec_count': 'sum', 'buy_exec_count': 'sum', 'sell_exec_count': 'sum',
                                      'buy_value': 'sum', 'sell_value': 'sum', 'total_value': 'sum'})
+        summary_ohlc = summary_ohlc.sort_index()
+
+        return summary_ohlc
+        # まとめたデータを日付で分ける
+        summary_ohlc_list = self.separate_summary(summary_ohlc)
+
+        
+        # # 保存
+        # for separate_summary in summary_ohlc_list:
+        #     # 並べ替え
+        #     separate_summary = separate_summary.sort_index()
+        #     separate_summary = separate_summary[self.columns]
+
+        #     self.save_ohlc_data(separate_summary)
+
+    def executions(self):
+
+        # 入力データのディレクトリチェック
+        if not os.path.exists(self.input_dir):
+            self.logger.logger.error('Does not exist input directory: {}'.format(self.input_dir))
+            exit(1)
+
+        self.logger.logger.info('START generate ohlcv')
+        self.logger.logger.info('input directory: {}'.format(self.input_dir))
+
+        # 空のDataframeを作成
+        summary_ohlc = pd.DataFrame(columns=['exec_date']+self.columns)
+
+        # 指定されたディレクトリからファイルを取得
+        file_list = os.listdir(self.input_dir)
+        assert(len(file_list)!=0 )
+
+        load_first = True
+        for file_name in file_list:
+            if file_name.endswith('.csv') :
+                # ディレクトリに存在するファイルを一つずつ読み込む
+                df_executions = self.load_execution_data(file_name)
+                summary_ohlc = self.summarize_ohlc(summary_ohlc, df_executions)
+
+            elif file_name.endswith('.zip') :
+                # ディレクトリに存在するzipファイルを一つずつ読み込む
+                df_executions = self.load_zipped_execution_data(file_name)
+                summary_ohlc = self.summarize_ohlc(summary_ohlc, df_executions)
+
+            else:
+                pass
+
+
+        # 日を跨いだ足の統合
+        self.logger.logger.info('summarizing candles ......')
+        # summary_ohlc = summary_ohlc.resample('1S').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last',
+        #                              'volume': 'sum', 'buy_volume': 'sum', 'sell_volume': 'sum',
+        #                              'exec_count': 'sum', 'buy_exec_count': 'sum', 'sell_exec_count': 'sum',
+        #                              'buy_value': 'sum', 'sell_value': 'sum', 'total_value': 'sum'})
+        summary_ohlc["exec_date"] = pd.to_datetime(summary_ohlc['exec_date'].replace('T', ' '))
+        summary_ohlc = summary_ohlc.set_index('exec_date')
         summary_ohlc = summary_ohlc.sort_index()
 
         return summary_ohlc
@@ -227,5 +283,5 @@ class GenerateHLOC(object):
 if __name__ == '__main__':
     logger = Logger()
 
-    generate_ohlc = GenerateHLOC( logger, './executions')
+    generate_ohlc = GenerateData( logger, './executions')
     generate_ohlc.run()
