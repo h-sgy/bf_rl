@@ -33,6 +33,7 @@ class GenerateData(object):
 
         # 足データのカラムの設定
         self.columns = ['open','high','low','close','volume','buy_volume','sell_volume','exec_count','buy_exec_count','sell_exec_count','buy_value','sell_value','total_value']
+        self.columns2 = ['exec_date','side','price','size','id','latency']
         self.file_lines = 300000
 
     def run(self):
@@ -105,7 +106,8 @@ class GenerateData(object):
         self.logger.logger.info('input directory: {}'.format(self.input_dir))
 
         # 空のDataframeを作成
-        summary_ohlc = pd.DataFrame(columns=['exec_date']+self.columns)
+        summary_ohlc = pd.DataFrame(columns=['exec_date']+self.columns2)
+        summary_ohlc = summary_ohlc.set_index('exec_date')
 
         # 指定されたディレクトリからファイルを取得
         file_list = os.listdir(self.input_dir)

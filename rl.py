@@ -23,11 +23,13 @@ generateData = GenerateData( logger, './executions')
 df = generateData.executions()
 # df = generateData.run()
 
-# df = pd.DataFrame(ohlc)
-# df = df.set_index("exec_date") 
-start = dt.date(2021, 8, 2)
-end = start + dt.timedelta(days=1)
-print(df[start.strftime("%Y/%m/%d %H:%M") : end.strftime("%Y/%m/%d %H:%M")])
+y = 2021
+m = 8
+d = 3
+start = dt.datetime(y, m, d, 0, 0)
+end = dt.datetime(y, m, d, 23, 59) + dt.timedelta(days=1)
+
+print(df[start.strftime("%Y/%m/%d %H:%M") : end.strftime("%Y/%m/%d %H:%M")]["size"])
 # print(df)
 # env = gym.make('CartPole-v1')
 # # Optional: PPO2 requires a vectorized environment to run
