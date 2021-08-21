@@ -6,7 +6,7 @@ import os
 import tempfile
 import zipfile
 import pandas as pd
-from datetime import timedelta
+from datetime import timedelta, datetime, time, timezone
 pd.options.display.max_columns = None
 #pd.options.display.max_rows = None
 pd.options.display.width = 2000
@@ -76,10 +76,14 @@ class GenerateData(object):
 
         # 日を跨いだ足の統合
         self.logger.logger.info('summarizing candles ......')
-        summary_ohlc = summary_ohlc.resample('1S').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last',
+        summary_ohlc = summary_ohlc.resample(self.timescale).agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last',
                                      'volume': 'sum', 'buy_volume': 'sum', 'sell_volume': 'sum',
                                      'exec_count': 'sum', 'buy_exec_count': 'sum', 'sell_exec_count': 'sum',
                                      'buy_value': 'sum', 'sell_value': 'sum', 'total_value': 'sum'})
+
+        jst = timezone(timedelta(hours=+9), 'JST')
+        idx = pd.date_range(datetime.combine(min(summary_ohlc.index), time.min, tzinfo=jst), datetime.combine(max(summary_ohlc.index), time.max, tzinfo=jst), freq=self.timescale)
+        summary_ohlc = summary_ohlc.reindex(idx)
         summary_ohlc = summary_ohlc.sort_index()
 
         return summary_ohlc
@@ -161,11 +165,11 @@ class GenerateData(object):
         self.logger.logger.info('generated base ohlc data frame')
 
         # nan埋め
-#        df_ohlc['close'] = df_ohlc['close'].fillna(method='ffill')
-#        df_ohlc['open'] = df_ohlc['open'].fillna(df_ohlc['close'])
-#        df_ohlc['high'] = df_ohlc['high'].fillna(df_ohlc['close'])
-#        df_ohlc['low'] = df_ohlc['low'].fillna(df_ohlc['close'])
-#        self.logger.logger.info('filled for nan')
+        # df_ohlc['close'] = df_ohlc['close'].fillna(method='ffill')
+        # df_ohlc['open'] = df_ohlc['open'].fillna(df_ohlc['close'])
+        # df_ohlc['high'] = df_ohlc['high'].fillna(df_ohlc['close'])
+        # df_ohlc['low'] = df_ohlc['low'].fillna(df_ohlc['close'])
+        # self.logger.logger.info('filled for nan')
 
         # TotalValue,Volumeのdataframe作成
         df_val = df_executions[['exec_date', 'price', 'size', 'side']]
