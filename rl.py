@@ -72,7 +72,7 @@ env = CustomEnv(df)
 
 # Parallel environments
 log_dir = './logs/'
-# env = Monitor(env, log_dir, allow_early_resets=True)
+env = Monitor(env, log_dir, allow_early_resets=True)
 # env = DummyVecEnv([lambda: env])
 env = make_vec_env(lambda: env)
 model = PPO("MlpPolicy", env, verbose=1)
