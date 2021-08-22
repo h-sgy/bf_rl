@@ -8,6 +8,8 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3 import PPO
 
 from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.callbacks import EvalCallback
+
 from env import CustomEnv
 from generate_data import GenerateData, Logger
 
@@ -74,12 +76,15 @@ log_dir = './logs/'
 # env = DummyVecEnv([lambda: env])
 env = make_vec_env(lambda: env)
 model = PPO("MlpPolicy", env, verbose=1)
-model.learn(total_timesteps=25000)
-model.save("model/btc_rl")
+eval_callback = EvalCallback(env, best_model_save_path='./model/',
+                             log_path='./logs/', eval_freq=500,
+                             deterministic=True, render=False)
+model.learn(total_timesteps=25000, callback=eval_callback)
+# model.save("model/btc_rl")
 
 del model # remove to demonstrate saving and loading
 
-model = PPO.load("model/btc_rl")
+model = PPO.load("model/best_model")
 
 obs = env.reset()
 while True:
