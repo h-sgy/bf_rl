@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 import os
+import talib as ta
 
 # # It will check your custom environment and output additional warnings if needed
 
@@ -38,8 +39,18 @@ else:
   df = generateData.run()
   df.to_pickle(path)
 
-# print(df.shape)
+
 # df = generateData.run()
+df['open'] = df['open'].fillna(method='ffill')
+df['high'] = df['high'].fillna(method='ffill')
+df['low'] = df['low'].fillna(method='ffill')
+df['close'] = df['close'].fillna(method='ffill')
+df['volume'] = df['volume'].fillna(method='ffill')
+mfi = ta.MFI(df['high'], df['low'], df['close'], df['volume'], timeperiod=14)
+df.insert(0, 'mfi', mfi)
+mom = ta.MOM(df['close'], timeperiod=10)
+df.insert(0, 'mom', mfi)
+
 env = CustomEnv(df)
 # check_env(env)
 # y = 2021

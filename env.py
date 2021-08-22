@@ -5,6 +5,9 @@ from gym import spaces
 from generate_data import GenerateData, Logger
 import datetime as dt
 import matplotlib.pyplot as plt
+import scipy.stats
+from sklearn.preprocessing import MinMaxScaler
+
 
 
 class Actions(Enum):
@@ -29,7 +32,7 @@ class CustomEnv(gym.Env):
     # Example when using discrete actions:
     self.action_space = spaces.Discrete(3)
     # Example for using image as input:
-    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(600, 13), dtype=np.float32)
+    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(600, 12), dtype=np.float32)
     self._done = False
     self._position = None
     self.executions = df
@@ -99,19 +102,23 @@ class CustomEnv(gym.Env):
     if trade:
         current_price = self.executions.iloc[self._current_tick]['close']
         last_trade_price = self.executions.iloc[self._last_trade_tick]['close']
-        price_diff = current_price - last_trade_price
+        price_diff = current_price - last_trade_price - self.trade_fee
+        diff = round(price_diff/100000, 1)
         if price_diff > 0:
-          step_reward += 1.0
-        # elif price_diff < -5000:
-        #   step_reward += -100
+          step_reward += 1.0 + diff
         else:
-          step_reward += -0.1
+          step_reward += -1.0 + diff
+
+    else:
+      step_reward += -0.01
 
     return step_reward
 
   def _observe(self):
-    executions = self.executions[self._current_tick : self._current_tick + self._window_size].fillna(0)
-    observation = [exe[0:13] for exe in executions.values]
+    executions = self.executions[self._current_tick - self._window_size : self._current_tick].fillna(0)
+    observation = [exe[0:12] for exe in executions.values]
+    mms = MinMaxScaler()
+    observation = mms.fit_transform(observation)
     return np.array(observation)
 
   def render(self, mode='human'):
@@ -165,8 +172,13 @@ class CustomEnv(gym.Env):
       last_trade_price = self.prices[self._last_trade_tick]
 
       if self._position == Positions.Short:
-        self._total_profit = self._total_profit + (last_trade_price - current_price - self.trade_fee)
+        self._total_profit += (last_trade_price - current_price - self.trade_fee)
 
       elif self._position == Positions.Long:
-        self._total_profit = self._total_profit + (current_price - last_trade_price - self.trade_fee)
+        self._total_profit += (current_price - last_trade_price - self.trade_fee)
 
+  def zscore(x, axis = None):
+      xmean = x.mean(axis=axis, keepdims=True)
+      xstd  = np.std(x, axis=axis, keepdims=True)
+      zscore = (x-xmean)/xstd
+      return zscore
