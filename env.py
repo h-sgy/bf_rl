@@ -32,7 +32,7 @@ class CustomEnv(gym.Env):
     # Example when using discrete actions:
     self.action_space = spaces.Discrete(3)
     # Example for using image as input:
-    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(600, 12), dtype=np.float32)
+    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(600, 13), dtype=np.float32)
     self._done = False
     self._position = None
     self.executions = df
@@ -116,7 +116,7 @@ class CustomEnv(gym.Env):
 
   def _observe(self):
     executions = self.executions[self._current_tick - self._window_size : self._current_tick].fillna(0)
-    observation = [exe[0:12] for exe in executions.values]
+    observation = [np.append(exe[0:12], exe[15]) for exe in executions.values]
     mms = MinMaxScaler()
     observation = mms.fit_transform(observation)
     return np.array(observation)
