@@ -102,12 +102,17 @@ class CustomEnv(gym.Env):
     if trade:
         current_price = self.executions.iloc[self._current_tick]['close']
         last_trade_price = self.executions.iloc[self._last_trade_tick]['close']
-        price_diff = current_price - last_trade_price - self.trade_fee
-        diff = round(price_diff/100000, 1)
-        if price_diff > 0:
-          step_reward += 1.0 + diff
-        else:
-          step_reward += -1.0 + diff
+        # price_diff = current_price - last_trade_price - self.trade_fee
+        # diff = round(price_diff/100000, 1)
+        # if price_diff > 0:
+        #   step_reward += 1.0 + diff
+        # else:
+        #   step_reward += -1.0 + diff
+        price_diff = current_price - last_trade_price
+        if self._position == Positions.Short:
+            step_reward += 1.0 + (-price_diff + self.trade_fee ) / 100000
+        elif self._position == Positions.Long:
+            step_reward += 1.0 + (price_diff - self.trade_fee) / 100000
 
     else:
       step_reward += -0.01
