@@ -32,7 +32,7 @@ class GenerateData(object):
         self.input_dir = input_dir
 
         # 足データのカラムの設定
-        self.columns = ['open','high','low','close','volume','buy_volume','sell_volume','exec_count','buy_exec_count','sell_exec_count','buy_value','sell_value','total_value']
+        self.columns = ['open','high','low','close','volume','buy_volume','sell_volume','exec_count','buy_exec_count','sell_exec_count','buy_value','sell_value','total_value','latency']
         self.columns2 = ['exec_date','side','price','size','id','latency']
         self.file_lines = 300000
 
@@ -79,7 +79,7 @@ class GenerateData(object):
         summary_ohlc = summary_ohlc.resample(self.timescale).agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last',
                                      'volume': 'sum', 'buy_volume': 'sum', 'sell_volume': 'sum',
                                      'exec_count': 'sum', 'buy_exec_count': 'sum', 'sell_exec_count': 'sum',
-                                     'buy_value': 'sum', 'sell_value': 'sum', 'total_value': 'sum'})
+                                     'buy_value': 'sum', 'sell_value': 'sum', 'total_value': 'sum', 'latency': 'mean'})
 
         jst = timezone(timedelta(hours=+9), 'JST')
         idx = pd.date_range(datetime.combine(min(summary_ohlc.index), time.min, tzinfo=jst), datetime.combine(max(summary_ohlc.index), time.max, tzinfo=jst), freq=self.timescale)
@@ -205,6 +205,11 @@ class GenerateData(object):
         sell_exec_count = df_count.query('side == "SELL"').resample(self.timescale).count()
         self.logger.logger.info('summarize counts')
 
+        
+        df_latency = df_executions[['exec_date', 'latency']]
+        df_latency = df_latency.set_index('exec_date')
+        latency = df_latency.resample(self.timescale).mean()
+
         # 基本OHLCVのデータフレームに列追加
         df_ohlc = pd.concat([df_ohlc, df_val], axis=1)
         df_ohlc = pd.concat([df_ohlc, buy_value], axis=1)
@@ -219,8 +224,9 @@ class GenerateData(object):
         df_ohlc = df_ohlc.rename(columns={'side': 'buy_exec_count'})
         df_ohlc = df_ohlc.join(sell_exec_count)
         df_ohlc = df_ohlc.rename(columns={'side': 'sell_exec_count'})
+        df_ohlc = df_ohlc.join(latency)
+        df_ohlc = df_ohlc.rename(columns={'side': 'latency'})
         self.logger.logger.info('append to base data frame')
-
         return df_ohlc
 
     def summarize_ohlc(self, summary_ohlc, df_ohlc):
