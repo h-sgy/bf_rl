@@ -27,7 +27,7 @@ path = "executions/test/test.pkl"
 if os.path.exists(path):
   df = pd.read_pickle(path)
 else:
-  generateData = GenerateData( logger, './test')
+  generateData = GenerateData( logger, './executions/test')
   generateData.timescale = '500ms'
   df = generateData.run()
   df.to_pickle(path)
