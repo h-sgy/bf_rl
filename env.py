@@ -32,7 +32,7 @@ class CustomEnv(gym.Env):
     # Example when using discrete actions:
     self.action_space = spaces.Discrete(3)
     # Example for using image as input:
-    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(600, 13), dtype=np.float32)
+    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(600, 7), dtype=np.float32)
     self._done = False
     self._position = None
     self.executions = df
@@ -72,6 +72,9 @@ class CustomEnv(gym.Env):
 
     self._update_profit(action)
     
+    if self._total_profit < -100000:
+      self._done = True
+
     if action == 0:  # flat
       self._position = Positions.Flat
     elif action == 1:  # buy
@@ -110,9 +113,9 @@ class CustomEnv(gym.Env):
         #   step_reward += -1.0 + diff
         price_diff = current_price - last_trade_price
         if self._position == Positions.Short:
-            step_reward += 1.0 + (-price_diff + self.trade_fee ) / 100000
+            step_reward += (-price_diff + self.trade_fee ) / 10000
         elif self._position == Positions.Long:
-            step_reward += 1.0 + (price_diff - self.trade_fee) / 100000
+            step_reward += (price_diff - self.trade_fee) / 10000
 
     else:
       step_reward += -0.01
@@ -121,7 +124,7 @@ class CustomEnv(gym.Env):
 
   def _observe(self):
     executions = self.executions[self._current_tick - self._window_size : self._current_tick].fillna(0)
-    observation = [np.append(exe[0:12], exe[15]) for exe in executions.values]
+    observation = [np.append(exe[8:12], [exe[1],exe[2],exe[15]]) for exe in executions.values]
     mms = MinMaxScaler()
     observation = mms.fit_transform(observation)
     return np.array(observation)
