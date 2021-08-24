@@ -32,11 +32,11 @@ import pytz
 
 logger = Logger()
 
-path = "executions/executions.pkl"
+path = "executions/train/executions.pkl"
 if os.path.exists(path):
   df = pd.read_pickle(path)
 else:
-  generateData = GenerateData( logger, './executions')
+  generateData = GenerateData( logger, './executions/train')
   generateData.timescale = '500ms'
   df = generateData.run()
   df.to_pickle(path)
@@ -126,7 +126,7 @@ def callback(_locals, _globals):
    nupdates += 1
    return True
 
-model.learn(total_timesteps=15000, callback=eval_callback)
+model.learn(total_timesteps=100000, callback=eval_callback)
 # model.save("model/btc_rl")
 
 del model # remove to demonstrate saving and loading
