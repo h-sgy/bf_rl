@@ -8,7 +8,8 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3 import PPO
 
 from stable_baselines3.common.env_checker import check_env
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from env import CustomEnv
 from generate_data import GenerateData, Logger
@@ -18,6 +19,7 @@ import numpy as np
 import datetime as dt
 import os
 import talib as ta
+import pytz
 
 # # It will check your custom environment and output additional warnings if needed
 
@@ -86,11 +88,45 @@ log_dir = './logs/'
 env = Monitor(env, log_dir, allow_early_resets=True)
 # env = DummyVecEnv([lambda: env])
 env = make_vec_env(lambda: env)
-model = PPO("MlpPolicy", env, verbose=1)
+model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_dir)
+
 eval_callback = EvalCallback(env, best_model_save_path='./model/',
-                             log_path='./logs/', eval_freq=500,
+                             log_path='./logs/', eval_freq=1000,
                              deterministic=True, render=False)
-model.learn(total_timesteps=25000, callback=eval_callback)
+
+checkpoint_callback = CheckpointCallback(save_freq=1000, save_path='./logs/',
+                                         name_prefix='rl_model')
+
+best_mean_reward = -np.inf # ベスト平均報酬
+nupdates = 0 # 更新数
+# 更新毎に呼ばれるコールバック
+def callback(_locals, _globals):
+   global nupdates
+   global best_mean_reward
+   # print('callback:', nupdates)
+
+   # 10更新毎
+   if (nupdates + 1) % 100 == 0:
+       # 平均エピソード長、平均報酬の取得
+       x, y = ts2xy(load_results(log_dir), 'timesteps')
+       if len(x) > 0:
+           # 最近10件の平均報酬
+           mean_reward = np.mean(y[-100:])
+
+           # 平均報酬がベスト報酬以上の時はエージェントを保存
+           update_model = mean_reward > best_mean_reward
+           if update_model:
+               best_mean_reward = mean_reward
+               _locals['self'].save(log_dir + 'best_model.pkl')
+
+           # ログ
+           print("time: {}, nupdates: {}, mean: {:.2f}, best_mean: {:.2f}, model_update: {}".format(
+               dt.datetime.now(pytz.timezone('Asia/Tokyo')),
+               nupdates, mean_reward, best_mean_reward, update_model))
+   nupdates += 1
+   return True
+
+model.learn(total_timesteps=15000, callback=eval_callback)
 # model.save("model/btc_rl")
 
 del model # remove to demonstrate saving and loading
