@@ -52,7 +52,7 @@ env = Monitor(env, log_dir, allow_early_resets=True)
 # env = DummyVecEnv([lambda: env])
 env = make_vec_env(lambda: env)
 # model.save("model/btc_rl")
-model = PPO.load("model/best_model")
+model = PPO.load("logs/best_model.pkl")
 
 obs = env.reset()
 while True:

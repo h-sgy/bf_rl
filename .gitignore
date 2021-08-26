@@ -3,3 +3,4 @@ executions/*
 __pycache__/
 logs/*
 model/*
+*pkl

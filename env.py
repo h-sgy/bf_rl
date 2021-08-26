@@ -125,8 +125,8 @@ class CustomEnv(gym.Env):
   def _observe(self):
     executions = self.executions[self._current_tick - self._window_size : self._current_tick].fillna(0)
     observation = [np.append(exe[8:12], [exe[1],exe[2],exe[15]]) for exe in executions.values]
-    mms = MinMaxScaler()
-    observation = mms.fit_transform(observation)
+    # mms = MinMaxScaler()
+    # observation = mms.fit_transform(observation)
     return np.array(observation)
 
   def render(self, mode='human'):

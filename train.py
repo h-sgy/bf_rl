@@ -126,7 +126,7 @@ def callback(_locals, _globals):
    nupdates += 1
    return True
 
-model.learn(total_timesteps=5000, callback=callback)
+model.learn(total_timesteps=1000, callback=callback)
 # model.save("model/btc_rl")
 
 del model # remove to demonstrate saving and loading
@@ -135,6 +135,8 @@ model = PPO.load("model/best_model")
 
 obs = env.reset()
 while True:
+  print('------')
+  print(obs)
   action, _states = model.predict(obs, deterministic=True)
   obs, rewards, done, info = env.step(action)
   # env.render()
