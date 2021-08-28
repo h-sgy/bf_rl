@@ -37,21 +37,20 @@ if os.path.exists(path):
   df = pd.read_pickle(path)
 else:
   generateData = GenerateData( logger, './executions/train')
-  generateData.timescale = '500ms'
+  generateData.timescale = '1s'
   df = generateData.run()
   df.to_pickle(path)
 
 
 # df = generateData.run()
-df['open'] = df['open'].fillna(method='ffill')
-df['high'] = df['high'].fillna(method='ffill')
-df['low'] = df['low'].fillna(method='ffill')
-df['close'] = df['close'].fillna(method='ffill')
-df['volume'] = df['volume'].fillna(method='ffill')
-mfi = ta.MFI(df['high'], df['low'], df['close'], df['volume'], timeperiod=14)
-df.insert(0, 'mfi', mfi)
-mom = ta.MOM(df['close'], timeperiod=10)
-df.insert(0, 'mom', mfi)
+
+
+# sma atr mom mfi open high low close volume buy_volume sell_volume exec_count buy_exec_count sell_exec_count buy_value sell_value total_value latency
+
+# hige_top = (df['high']-df['close'])/(df['high']-df['low'])*100
+# df.insert(0, 'hige_top', hige_top.interpolate(limit_direction='both'))
+# hige_bottom = (df['high']-df['open'])/(df['high']-df['low'])*100
+# df.insert(0, 'hige_bottom', hige_bottom.interpolate(limit_direction='both'))
 
 env = CustomEnv(df)
 # check_env(env)
@@ -85,12 +84,13 @@ env = CustomEnv(df)
 
 # Parallel environments
 log_dir = './logs/'
-env = Monitor(env, log_dir, allow_early_resets=True)
+model_dir = './model/'
+# env = Monitor(env, log_dir, allow_early_resets=True)
 # env = DummyVecEnv([lambda: env])
 env = make_vec_env(lambda: env)
 model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_dir)
 
-eval_callback = EvalCallback(env, best_model_save_path='./model/',
+eval_callback = EvalCallback(env, best_model_save_path=model_dir,
                              log_path='./logs/', eval_freq=1000,
                              deterministic=True, render=False)
 
@@ -117,7 +117,7 @@ def callback(_locals, _globals):
            update_model = mean_reward > best_mean_reward
            if update_model:
                best_mean_reward = mean_reward
-               _locals['self'].save(log_dir + 'best_model.pkl')
+               _locals['self'].save(model_dir + 'best_model.pkl')
 
            # ログ
            print("time: {}, nupdates: {}, mean: {:.2f}, best_mean: {:.2f}, model_update: {}".format(
@@ -126,12 +126,13 @@ def callback(_locals, _globals):
    nupdates += 1
    return True
 
-model.learn(total_timesteps=5000, callback=callback)
+model.learn(total_timesteps=100000, callback=callback)
 # model.save("model/btc_rl")
 
 del model # remove to demonstrate saving and loading
 
-model = PPO.load("model/best_model")
+# model = PPO.load("model/best_model")
+model = PPO.load(model_dir + "best_model.pkl")
 
 obs = env.reset()
 while True:

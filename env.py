@@ -7,6 +7,8 @@ import datetime as dt
 import matplotlib.pyplot as plt
 import scipy.stats
 from sklearn.preprocessing import MinMaxScaler
+import random
+import talib as ta
 
 
 
@@ -26,16 +28,17 @@ class CustomEnv(gym.Env):
 
   def __init__(self, df):
     super(CustomEnv, self).__init__()
-    self._window_size = 600
+    self._window_size = 300
     # Define action and observation space
     # They must be gym.spaces objects
     # Example when using discrete actions:
     self.action_space = spaces.Discrete(3)
     # Example for using image as input:
-    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(600, 7), dtype=np.float32)
+    self.executions = df
+    self.prices, self.signal_features = self._process_data()
+    self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self._window_size, self.signal_features.shape[1]))
     self._done = False
     self._position = None
-    self.executions = df
     self._current_tick = None
     self._last_trade_tick = None
 
@@ -45,7 +48,6 @@ class CustomEnv(gym.Env):
     self._total_profit = None
     self._position_history = None
     self._first_rendering = None
-    self.prices, self.signal_features = self._process_data()
 
     self.trade_fee = 500
 
@@ -61,6 +63,7 @@ class CustomEnv(gym.Env):
     return self._observe()
 
   def step(self, action):
+    # self.trade_fee = random.randrange(250, 500, 1)
     self._done = False
     self._current_tick = self._current_tick + self._window_size
 
@@ -72,8 +75,8 @@ class CustomEnv(gym.Env):
 
     self._update_profit(action)
     
-    if self._total_profit < -100000:
-      self._done = True
+    # if self._total_profit < -100000:
+    #   self._done = True
 
     if action == 0:  # flat
       self._position = Positions.Flat
@@ -89,7 +92,8 @@ class CustomEnv(gym.Env):
     info = dict(
         total_reward = self._total_reward,
         total_profit = self._total_profit,
-        position = self._position.value
+        position = self._position.value,
+        count = len(self._position_history),
     )
     return observation, step_reward, self._done, info
 
@@ -103,8 +107,8 @@ class CustomEnv(gym.Env):
         trade = True
 
     if trade:
-        current_price = self.executions.iloc[self._current_tick]['close']
-        last_trade_price = self.executions.iloc[self._last_trade_tick]['close']
+        current_price = self.prices[self._current_tick]
+        last_trade_price = self.prices[self._last_trade_tick]
         # price_diff = current_price - last_trade_price - self.trade_fee
         # diff = round(price_diff/100000, 1)
         # if price_diff > 0:
@@ -123,11 +127,12 @@ class CustomEnv(gym.Env):
     return step_reward
 
   def _observe(self):
-    executions = self.executions[self._current_tick - self._window_size : self._current_tick].fillna(0)
-    observation = [np.append(exe[8:12], [exe[1],exe[2],exe[15]]) for exe in executions.values]
+    # executions = self.executions[self._current_tick - self._window_size : self._current_tick].fillna(0)
+    # observation = [[exe[0],exe[1],exe[2],exe[3],exe[7],exe[11],exe[12],exe[13],exe[-1]] for exe in executions.values]
     # mms = MinMaxScaler()
     # observation = mms.fit_transform(observation)
-    return np.array(observation)
+    # return np.array(observation)
+    return self.signal_features[(self._current_tick-self._window_size):self._current_tick]
 
   def render(self, mode='human'):
 
@@ -162,11 +167,35 @@ class CustomEnv(gym.Env):
     return
 
   def _process_data(self):
-      prices = self.executions.fillna(method='ffill').loc[:, 'close'].to_numpy()
+      open = self.executions['open'].interpolate(limit_direction='both')
+      high = self.executions['high'].interpolate(limit_direction='both')
+      low = self.executions['low'].interpolate(limit_direction='both')
+      close = self.executions['close'].interpolate(limit_direction='both')
+      volume = self.executions['volume'].interpolate(limit_direction='both')
+      exec_count = self.executions['exec_count'].interpolate(limit_direction='both')
+      latency = self.executions['latency'].interpolate(limit_direction='both')
+
+      prices = close.to_numpy()
+
+      # prices = self.executions.fillna(method='ffill').loc[:, 'close'].to_numpy()
+
+
+      # mfi = ta.MFI(high, low, close, volume, timeperiod=14).interpolate(limit_direction='both').to_numpy()
+      # mom = ta.MOM(df['close'], timeperiod=10)
+      # df.insert(0, 'mom', mom)
+
+
+      # # atr = ta.ATR(df['high'], df['low'], df['close'], timeperiod=10).interpolate(limit_direction='both')
+      # # df.insert(0, 'atr', atr)
+
+      sma = ta.SMA(close).interpolate(limit_direction='both').to_numpy()
 
       diff = np.insert(np.diff(prices), 0, 0)
       signal_features = np.column_stack((prices, diff))
-
+      # signal_features = np.column_stack((signal_features, mfi))
+      signal_features = np.column_stack((signal_features, sma))
+      signal_features = np.column_stack((signal_features, exec_count))
+      signal_features = np.column_stack((signal_features, latency))
       return prices, signal_features
 
   def _update_profit(self, action):
@@ -184,9 +213,3 @@ class CustomEnv(gym.Env):
 
       elif self._position == Positions.Long:
         self._total_profit += (current_price - last_trade_price - self.trade_fee)
-
-  def zscore(x, axis = None):
-      xmean = x.mean(axis=axis, keepdims=True)
-      xstd  = np.std(x, axis=axis, keepdims=True)
-      zscore = (x-xmean)/xstd
-      return zscore
