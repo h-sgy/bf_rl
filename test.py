@@ -28,37 +28,26 @@ if os.path.exists(path):
   df = pd.read_pickle(path)
 else:
   generateData = GenerateData( logger, './executions/test')
-  generateData.timescale = '500ms'
+  generateData.timescale = '1s'
   df = generateData.run()
   df.to_pickle(path)
-
-
-# df = generateData.run()
-df['open'] = df['open'].fillna(method='ffill')
-df['high'] = df['high'].fillna(method='ffill')
-df['low'] = df['low'].fillna(method='ffill')
-df['close'] = df['close'].fillna(method='ffill')
-df['volume'] = df['volume'].fillna(method='ffill')
-mfi = ta.MFI(df['high'], df['low'], df['close'], df['volume'], timeperiod=14)
-df.insert(0, 'mfi', mfi)
-mom = ta.MOM(df['close'], timeperiod=10)
-df.insert(0, 'mom', mfi)
 
 env = CustomEnv(df)
 
 # Parallel environments
 log_dir = './logs/'
+model_dir = './model/'
 env = Monitor(env, log_dir, allow_early_resets=True)
 # env = DummyVecEnv([lambda: env])
 env = make_vec_env(lambda: env)
 # model.save("model/btc_rl")
-model = PPO.load("logs/best_model.pkl")
+model = PPO.load(model_dir + "best_model.pkl")
 
 obs = env.reset()
 while True:
   action, _states = model.predict(obs, deterministic=True)
   obs, rewards, done, info = env.step(action)
-  # env.render()
+  env.render()
   if done:
     print("done")
     print(info)
