@@ -51,7 +51,7 @@ df['volume'] = df['volume'].fillna(method='ffill')
 mfi = ta.MFI(df['high'], df['low'], df['close'], df['volume'], timeperiod=14)
 df.insert(0, 'mfi', mfi)
 mom = ta.MOM(df['close'], timeperiod=10)
-df.insert(0, 'mom', mfi)
+df.insert(0, 'mom', mom)
 
 env = CustomEnv(df)
 # check_env(env)

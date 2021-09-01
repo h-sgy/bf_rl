@@ -36,7 +36,6 @@ class CustomEnv(gym.Env):
     self.action_space = spaces.Discrete(3)
     # Example for using image as input:
     self.executions = df
-    self.scaler_mixmax = preprocessing.MinMaxScaler()
     self.prices, self.signal_features = self._process_data()
     self.observation_space = spaces.Box(
       low=0,
@@ -74,17 +73,14 @@ class CustomEnv(gym.Env):
 
   def step(self, action):
     # self.trade_fee = random.randrange(250, 500, 1)
-    self._done = False
     self._current_tick += 60
+    self._done = self._current_tick >= self._end_tick
 
-    if self._current_tick == self._end_tick:
-      self._done = True
-      
-    step_reward = self._calculate_reward(action)
+    step_reward = self._trade_profit(action)
     self._total_reward += step_reward
+    self._total_profit += step_reward
 
-    self._update_profit(action)
-    
+    prev_position = self._position
     if action == Actions.Flat.value:  # flat
       pass
     elif action == Actions.Buy.value and self._pos <= 0:  # buy
@@ -96,9 +92,11 @@ class CustomEnv(gym.Env):
       self._position = Positions.Flat
     elif self._pos > 0:
       self._position = Positions.Long
-      self._last_trade_tick = self._current_tick
     elif self._pos < 0:
       self._position = Positions.Short
+
+    # 新規建て時のみ建値の位置を記録
+    if prev_position == Positions.Flat and self._position != Positions.Flat:
       self._last_trade_tick = self._current_tick
 
     self._position_history.append(self._position)
@@ -110,35 +108,22 @@ class CustomEnv(gym.Env):
     )
     return observation, step_reward, self._done, info
 
-  def _calculate_reward(self, action):
-    # 報酬を返す。
-    step_reward = 0  # pip
-
-    trade = False
-    if ((action == Actions.Buy.value and self._position == Positions.Short) or
-        (action == Actions.Sell.value and self._position == Positions.Long)):
-        trade = True
-
-    if trade:
-        current_price = self.prices[self._current_tick]
-        last_trade_price = self.prices[self._last_trade_tick]
-        price_diff = current_price - last_trade_price
-        if self._position == Positions.Short:
-            step_reward += 1
-        elif self._position == Positions.Long:
-            step_reward += 1
-
-        step_reward += 0.01
-
-        
-
-    # else:
-    #   step_reward += -0.01
-
-    return step_reward
+  def _trade_profit(self, action):
+    # 決済時(終了時は強制決済)の手数料込み損益を返す
+    closing = ((action == Actions.Buy.value and self._position == Positions.Short) or
+               (action == Actions.Sell.value and self._position == Positions.Long))
+    if self._position == Positions.Flat or not (closing or self._done):
+      return 0.
+    price_diff = self.prices[self._current_tick] - self.prices[self._last_trade_tick]
+    if self._position == Positions.Short:
+      price_diff = -price_diff
+    return price_diff - self.trade_fee
 
   def _observe(self):
-    return self.signal_features[(self._current_tick-self._window_size):self._current_tick]
+    # ウィンドウ内でMinMax正規化（未来データを使わない、train/testでスケールが揃う）
+    window = self.signal_features[(self._current_tick-self._window_size):self._current_tick]
+    lo, hi = window.min(axis=0), window.max(axis=0)
+    return (window - lo) / np.where(hi > lo, hi - lo, 1)
 
   def render(self, mode='human'):
 
@@ -203,8 +188,6 @@ class CustomEnv(gym.Env):
         
       diff = np.insert(np.diff(prices), 0, 0)
 
-      diff = self.scaler_mixmax.fit_transform(diff.reshape(-1,1))
-      prices = self.scaler_mixmax.fit_transform(prices.reshape(-1,1))
       signal_features = np.column_stack((prices, diff))
       # signal_features = np.column_stack((signal_features, mfi))
       # signal_features = np.column_stack((signal_features, sma))
@@ -213,19 +196,3 @@ class CustomEnv(gym.Env):
       # signal_features = np.column_stack((signal_features, hige_top))
       # signal_features = np.column_stack((signal_features, hige_bottom))
       return prices, signal_features
-
-  def _update_profit(self, action):
-    trade = False
-    if ((action == Actions.Buy.value and self._position == Positions.Short) or
-        (action == Actions.Sell.value and self._position == Positions.Long)):
-        trade = True
-
-    if trade or self._done:
-      current_price = self.prices[self._current_tick]
-      last_trade_price = self.prices[self._last_trade_tick]
-
-      if self._position == Positions.Short:
-        self._total_profit += (last_trade_price - current_price - self.trade_fee)
-
-      elif self._position == Positions.Long:
-        self._total_profit += (current_price - last_trade_price - self.trade_fee)
